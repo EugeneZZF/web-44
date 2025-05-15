@@ -10,6 +10,69 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
     }
 
     // Получаем значения из куки, если есть
+    session_start();
+
+    // Проверяем, авторизован ли пользователь
+    if (empty($_SESSION['user_id'])) {
+        // Если отправлена форма логина
+        if (!empty($_POST['login']) && !empty($_POST['password'])) {
+            $user = 'u68585'; // Замените на ваш логин
+            $pass = '6687463'; // Замените на ваш пароль
+            $db = new PDO('mysql:host=localhost;dbname=u68585', $user, $pass, [
+                PDO::ATTR_PERSISTENT => true,
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            $stmt = $db->prepare("SELECT id, password FROM users WHERE login = :login");
+            $stmt->execute([':login' => $_POST['login']]);
+            $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($userData && password_verify($_POST['password'], $userData['password'])) {
+                $_SESSION['user_id'] = $userData['id'];
+                header('Location: ' . $_SERVER['REQUEST_URI']);
+                exit();
+            } else {
+                print('Неверный логин или пароль.<br>');
+            }
+        }
+        // Форма логина
+        print('<form method="POST">
+            <label>Логин: <input name="login" required></label><br>
+            <label>Пароль: <input type="password" name="password" required></label><br>
+            <input type="submit" value="Войти">
+        </form>');
+        exit();
+    }
+
+    // Если пользователь не существует в БД, предложить регистрацию
+    $user = 'u68585'; // Замените на ваш логин
+    $pass = '6687463'; // Замените на ваш пароль
+    $db = new PDO('mysql:host=localhost;dbname=u68585', $user, $pass, [
+        PDO::ATTR_PERSISTENT => true,
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+    ]);
+    $stmt = $db->prepare("SELECT id FROM users WHERE id = :id");
+    $stmt->execute([':id' => $_SESSION['user_id']]);
+    if (!$stmt->fetch()) {
+        // Регистрация нового пользователя
+        if (!empty($_POST['new_login']) && !empty($_POST['new_password'])) {
+            $hash = password_hash($_POST['new_password'], PASSWORD_DEFAULT);
+            $stmt = $db->prepare("INSERT INTO users (login, password) VALUES (:login, :password)");
+            $stmt->execute([
+                ':login' => $_POST['new_login'],
+                ':password' => $hash
+            ]);
+            $_SESSION['user_id'] = $db->lastInsertId();
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit();
+        }
+        // Форма регистрации
+        print('<form method="POST">
+            <label>Придумайте логин: <input name="new_login" required></label><br>
+            <label>Придумайте пароль: <input type="password" name="new_password" required></label><br>
+            <input type="submit" value="Зарегистрироваться">
+        </form>');
+        exit();
+    }
+
     $values = [
         'full_name' => isset($_COOKIE['full_name']) ? $_COOKIE['full_name'] : '',
         'phone' => isset($_COOKIE['phone']) ? $_COOKIE['phone'] : '',
